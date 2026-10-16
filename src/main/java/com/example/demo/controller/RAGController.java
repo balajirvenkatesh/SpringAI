@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,13 +23,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class RAGController {
 
     private final ChatClient chatClient;
+    private final ChatClient webSearchChatClient;
     private final VectorStore vectorStore;
 
     @Value("classpath:/promptTemplate/systemPromptRandomDataTemplate.st")
     Resource promResource;
 
-    RAGController(@Qualifier("chatMemoryClient") ChatClient chatClient, VectorStore vectorStore){
+    RAGController(@Qualifier("chatMemoryClient") ChatClient chatClient,
+                  @Qualifier("webSearchChatClient") ChatClient webSearchChatClient,
+                  VectorStore vectorStore){
         this.chatClient = chatClient;
+        this.webSearchChatClient = webSearchChatClient;
         this.vectorStore = vectorStore;
     }
 
@@ -48,6 +53,19 @@ public class RAGController {
         // );
         String answer = chatClient.prompt()
             // .system(promResourceSpec -> promResourceSpec.text(promResource).param("documents", similarDocuments) )
+            .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, username))
+            .user(message)
+            .call()
+            .content();
+        return ResponseEntity.ok(answer);
+    }
+
+    @GetMapping("/web/chat")
+    public ResponseEntity<String> webSearchChat(@RequestParam String username, @RequestParam String message){
+        // The web search advisor searches the web with the message and adds the results to the prompt
+        String answer = webSearchChatClient.prompt()
+            // Web questions are often about "latest" things, and the model doesn't know today's date
+            .system("You are a helpful assistant. Today's date is " + LocalDate.now() + ".")
             .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, username))
             .user(message)
             .call()
