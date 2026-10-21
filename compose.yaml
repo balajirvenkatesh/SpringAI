@@ -7,5 +7,10 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
+  redis:
+    image: redis:latest # includes vector search (FT.*), needed by the semantic cache
+    ports:
+      - "6379:6379"
+
 volumes:
   qdrant_data:
